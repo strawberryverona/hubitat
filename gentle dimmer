@@ -1,0 +1,78 @@
+definition(
+    name:"Wake up lights",
+    namespace: "KD",
+    author: "KD",
+    description: "Dim/raise lights slowly and also adjust color temperature",
+    category: "Convenience",
+    iconUrl: "",
+    iconX2Url: "",
+    iconX3Url: ""
+    )
+
+preferences {
+     mainPage()
+} 
+
+def mainPage() {
+	page(name:"mainPage", title:"Settings", install: true, uninstall: true) {
+		section("Choose which lights to dim") {
+			input (name:"dimmers", type: "capability.switchLevel", title: "Select dimmers", required: true, multiple: true)
+		}
+		section("Duration of dimming") {
+			input(name: "duration", type: "number", title: "For this many minutes", description: "30", required: false, defaultValue: 30)
+		}
+		section("Dim from-to") {
+			input(name: "startLevel", type: "number", range: "0..99", title: "From this level", defaultValue: 0, description: "Between 0 and 99", required: true, multiple: false)
+			input(name: "endLevel", type: "number", range: "0..99", title: "To this level", defaultValue: 99, description: "Between 0 and 99", required: true, multiple: false)
+      input(name: "startTemperature", type: "number", range: "2700..6000", title: "From this temperature", defaultValue: 2700, description: "Between 2700 and 6000", required: true, multiple: false)
+      input(name: "endTemperature", type: "number", range: "2700..6000", title: "To this temperature", defaultValue: 6000, description: "Between 2700 and 6000", required: true, multiple: false)
+		}
+    section("Allow Automatic Dimming") {
+			input(name: "requiredModes", type: "mode", title: "In These Modes", multiple: true, required: false)
+      input(name: "days", type: "enum", title: "On These Days", description: "Every day", required: false, multiple: true, options: weekdays() + weekends())
+		}
+		section("Start Dimming...") {
+			input(name: "startTime", type: "time", title: "At This Time", description: null, required: false)
+		}
+}
+    
+def installed() {
+	initialize()
+}
+
+def updated() {
+	unsubscribe()
+	unschedule()
+	initialize()
+}
+
+def initialize() {
+	log.debug "Initializing"
+  schedule(startTime, "scheduledStart")
+	subscribe(location, locationHandler)
+}
+
+def canStartAutomatically() {
+
+	def today = new Date().format("EEEE")
+	def mode = location.mode;
+
+	if (days && !days.contains(today)) {// if no days, assume every day
+		log.trace "should not run, wrong day"
+		return false
+	}
+
+	if (requiredModes && !requiredModes.contains(mode))
+	{
+		log.trace "should not run, wrong mode"
+		return false
+	}
+
+	return true
+}
+
+def scheduledStart() {
+	if (canStartAutomatically()) {
+		start("schedule")
+	}
+}
